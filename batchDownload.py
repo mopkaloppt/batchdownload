@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-import urllib
+from urllib import urlretrieve, urlcleanup
 from urllib2 import Request, urlopen, URLError
 from urlparse import urlparse
 import os
-import sys
 import paramiko
-from time import sleep
-import requests
 from multiprocessing import Pool
 from progress.bar import Bar
 
@@ -54,40 +51,27 @@ def is_too_large(url):
     else:
         return False
 
-# Cant use Requests.. doesn't work for ftp
+
 def buffer_stream(url):
     print ' '
     print 'Buffering...'
     response = urlopen(url)
-    BUFFER_CHUNK = 4096
+    buffer_chunk = 4096  # use os.stat(path).st_blksize to determine a good chunk size for os stream
     with open(get_local_path(url), 'wb') as f:
         while True:
-            chunk = response.read(BUFFER_CHUNK)
+            chunk = response.read(buffer_chunk)
             if not chunk:
                 break
             f.write(chunk)
     response.close()
 
-    # response = requests.get(url, stream=True)
-    #
-    #
-    # f = open(get_local_path(url), 'wb')
-    # for chunk in response.iter_content(chunk_size=1024*1024*1024):
-    #     if chunk:  # filter out keep-alive new chunks
-    #         f.write(chunk)
-    #         good_chunk_size = os.stat(f)
-    #         print 'This is a good chunk size for 1GB ' + str(good_chunk_size.st_blksize)
-    # f.close()
-    # response.close()
-
 
 def batch_download(url):
     req = Request(url)
-    # req.has_proxy()
     try:
         print ' '
         print 'Start downloading...'
-        response = urlopen(req, timeout=None)
+        response = urlopen(req)
     except URLError as e:
         # No network connection or Invalid URL or The specified server doesn't exist.
         if hasattr(e, 'reason'):
@@ -102,21 +86,22 @@ def batch_download(url):
         real_url = response.geturl()
         print real_url
         saved_to = get_local_path(real_url)
-        urllib.urlretrieve(real_url, saved_to)
+        urlretrieve(real_url, saved_to)
 
         meta_data = response.info()['Content-Length']
+        file_on_disk = os.stat(saved_to).st_size
         print 'Content-Length: ' + meta_data
         print 'File on Disk after Download: ' + str(file_on_disk)
 
-        remove_partially_downloaded(real_url, response, saved_to)
+        remove_partially_downloaded(real_url, response, saved_to, file_on_disk)
 
-        urllib.urlcleanup()
+        urlcleanup()
     return
 
 
-def remove_partially_downloaded(url, meta_data, local_path_to_file):
+def remove_partially_downloaded(url, meta_data, local_path_to_file, file_on_disk):
     # meta_data = response.info()['Content-Length']
-    file_on_disk = os.stat(local_path_to_file).st_size
+    # file_on_disk = os.stat(local_path_to_file).st_size
     print 'Content-Length: ' + meta_data
     print 'File on Disk after Download: ' + str(file_on_disk)
 
@@ -157,9 +142,9 @@ def sftp_download(url, user, passwrd):
 def get_filename_from_url(url):
     filename = url.split('/')[-1].split('#')[0].split('?')[0]
     # Just in case the URL path doesn't specify the file name
-    # set the filename default to no_name.txt
+    # set the filename default to no_name
     if len(filename) <= 0:
-        filename = 'no_name.txt'
+        filename = 'no_name'
     return filename
 
 
@@ -172,24 +157,14 @@ def main():
     urls = urls.split(',')
     print urls
 
-
-    # i = 0
-    # l = len(urls)
-
-    # Initial call to print 0% progress
-    # print_progress(i, l, prefix='Progress:', suffix='Complete', decimals=1, bar_length=100)
     bar = Bar('Processing', max=len(urls), fill='█', suffix='%(percent)d%%')
-    p = Pool()
-    # p.map(validate_protocol, urls)
-    for i in p.imap(validate_protocol, urls):
+    pool = Pool()
+    for i in pool.imap(validate_protocol, urls):
+        # Sequential version
+        # for url in urls:
+        #     validate_protocol(url)
         bar.next()
     bar.finish()
-    # for url in urls:
-    #     validate_protocol(url)
-    #     sleep(0.1)
-        # Update Progress Bar
-        # i += 1
-        # print_progress(i, l, prefix='Progress:', suffix='Complete', decimals=1, bar_length=100)
 
 
 if __name__ == "__main__":
