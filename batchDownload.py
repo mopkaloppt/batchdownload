@@ -69,11 +69,11 @@ def buffer_stream(url):
                 break
             f.write(chunk)
 
-    meta_data = response.info()['Content-Length']
-    file_on_disk = os.stat(get_local_path(url)).st_size
+    # meta_data = response.info()['Content-Length']
+    # file_on_disk = os.stat(get_local_path(url)).st_size
     # print '\nContent-Length: ' + str(meta_data)
     # print 'File on Disk after Download: ' + str(file_on_disk)
-    remove_partially_downloaded(url, meta_data, saved_to, file_on_disk)
+    remove_partially_downloaded(url, response, saved_to)
     response.close()
 
 
