@@ -126,7 +126,7 @@ def remove_partially_downloaded(url, response, local_path_to_file):
 
 
 def sftp_download(url):
-
+    # This may need to be fixed be using Paramiko interactive command!
     user = raw_input('Enter username: ')
     passwrd = raw_input('Enter password: ')
 
